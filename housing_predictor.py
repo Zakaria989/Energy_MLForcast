@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from zlib import crc32
 from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+
 
 
 def load_data():
@@ -96,16 +99,48 @@ for set_ in (strat_train_set, strat_test_set):
  
 housing = strat_train_set.copy()
 
-# # Visual representation of high/low populated areas
-# housing.plot(kind="scatter", x="longitude", y="latitude", grid=True, s = housing["population"]/100, 
-#              label = "population", c = "median_house_value", cmap = "jet", colorbar =True, legend = True,sharex = False, figsize = (10,7))
-# plt.show()
+# Visual representation of high/low populated areas
+housing.plot(kind="scatter", x="longitude", y="latitude", grid=True, s = housing["population"]/100, 
+             label = "population", c = "median_house_value", cmap = "jet", colorbar =True, legend = True,sharex = False, figsize = (10,7))
+#plt.show()
 
-# Standard correlation between attributes
+# Standard correlation between attributes 
 corr_matrix = housing.corr()
-
+# Seems to be a obvious strong correlation between median house value and income
 corr_median_house_value = corr_matrix["median_house_value"].sort_values(ascending= False)
-print(corr_median_house_value)
+#print(corr_median_house_value)
 
 housing.plot(kind = "scatter", x = "median_income",y = "median_house_value", alpha = 0.1, grid = True)
-plt.show()
+#plt.show()
+
+
+
+# Combination of various attributes to get deeper insight
+housing["rooms_per_house"] = housing["total_rooms"] / housing["households"]
+housing["bedroom_ratio"] = housing["total_bedrooms"] / housing["total_rooms"]
+housing["people_per_house"] = housing["population"] / housing["households"]
+
+corr_matrix = housing.corr()
+print(corr_matrix["median_house_value"].sort_values(ascending=False))
+
+
+# Reverting to old data
+housing = strat_train_set.drop("median_house_value", axis = 1)
+housing_labels = strat_train_set["median_house_value"].copy()
+
+
+# Cleaning the data, we can 1. drop missing features, 2. drop the whole attribute, 3. set this values to 0 or the median
+imputer = SimpleImputer(strategy="median")
+housing_num = housing.select_dtypes(include=[np.number]) # Choose values that only have numbers, so we can find the median
+imputer.fit(housing_num)
+
+X = imputer.transform(housing_num)
+
+housing_tr = pd.DataFrame(X, columns= housing_num.columns, index=housing_num.index)
+
+# Cleaning the non numerical values
+housing_cat = housing[["ocean_proximity"]]
+cat_encoder = OneHotEncoder(sparse=False) # Spare = false makes so we get a Numpy array
+housing_cat_1hot = cat_encoder.fit_transform(housing_cat)
+
+
